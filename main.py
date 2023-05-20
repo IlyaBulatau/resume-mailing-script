@@ -172,6 +172,7 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
 
     def _process_insert_resume_text(self, driver, element):
         for line in self.resume_text:
+            line = line.replace('\n', '')
             ActionChains(driver).send_keys(line).perform()
             ActionChains(driver).key_down(Keys.SHIFT).key_down(Keys.ENTER).key_up(Keys.SHIFT).key_up(Keys.ENTER).perform()
         ActionChains(driver).send_keys(Keys.RETURN).perform()
