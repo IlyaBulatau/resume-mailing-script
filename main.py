@@ -9,6 +9,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 import json
 from time import sleep
 from config import ConfigDataLoader
+from log import log
 
 
 class ParseVacansiesLink:
@@ -27,7 +28,7 @@ class ParseVacansiesLink:
         return cls.INSTANCE
 
     def __init__(self, keys: tuple =('flask', 'python')):
-        self.URL: str = "https://hh.ru/search/vacancy?no_magic=true&L_save_area=true&text=&excluded_text=&professional_role=96&professional_role=114&professional_role=160&area=16&salary=&currency_code=RUR&experience=doesNotMatter&order_by=publication_time&search_period=30&items_on_page=50&page={}"
+        self.URL: str = "https://hh.ru/search/vacancy?no_magic=true&L_save_area=true&text=&excluded_text=&professional_role=160&professional_role=96&professional_role=113&professional_role=114&area=16&salary=&currency_code=RUR&experience=doesNotMatter&order_by=publication_time&search_period=7&items_on_page=50&page={}"
         self.START_PAGE: int = 0
         self.COUNT_PAGE: int | None = None
         self.KEYS_WORDS: tuple = keys
@@ -43,6 +44,7 @@ class ParseVacansiesLink:
 
         with webdriver.Chrome(options=self.options) as driver:
             driver.set_window_size(1850, 1000)
+            log.warning('START PARSE URL')
 
             driver.get(self.URL.format(0))
             # проскролить в низ страницы
@@ -51,33 +53,43 @@ class ParseVacansiesLink:
             paginate_block = driver.find_element(By.CLASS_NAME, 'pager')
             self.COUNT_PAGE = int(paginate_block.find_elements(By.CLASS_NAME, 'bloko-button')[-2].text) # количество страниц
 
+            log.info(f'COUNT PAGE={self.COUNT_PAGE}')
+
             self.__get_link_in_all_page(driver=driver)
             self.__save_link_in_json_file(self.vacansies_link_list)
             driver.close()
-
+        log.warning(f'END PARSE for key: {str(self.KEYS_WORDS)}')
 
     
     def __get_link_in_all_page(self, driver: webdriver.Chrome):
 
-        while self.START_PAGE <= self.COUNT_PAGE:
+        while self.START_PAGE < self.COUNT_PAGE:
             driver.get(self.URL.format(self.START_PAGE))
             driver.execute_script("window.scrollTo(0, 14000)")
             # собрать все вакансии со страницы
             vacansies = driver.find_elements(By.CLASS_NAME, 'serp-item')
+
+            log.info(f'Parse page: number page: {self.START_PAGE}; URL: {self.URL.format(self.START_PAGE)}')
+            
             for vacanci in vacansies:
                 # получить заголовок вакансии
                 title = vacanci.find_element(By.TAG_NAME, 'h3')
+
 
                 for word in title.text.split():
                     # если слово из заголовка есть в массиве ключей то добавить вакансию в список-вакансий
                     # и выйти из цикла для перехода к следующей вакансии
                     if word.lower() in self.KEYS_WORDS:
                         link_vacanci = title.find_element(By.TAG_NAME, 'a').get_attribute('href')
+
+                        log.info(f'ADD VACANCI {title.text} URL: {link_vacanci} IN LIST')
+                        
                         self.vacansies_link_list.append(link_vacanci)
                         break
             # увеличивваем счетчик
             self.START_PAGE += 1
             sleep(10)
+            log.warning(f'CURREMT COUNT VACANCIES {str(len(self.vacansies_link_list))}')
 
     def __save_link_in_json_file(self, vac_list):
         """
@@ -85,7 +97,7 @@ class ParseVacansiesLink:
         """
         dict_vac = {i: vac for i, vac in enumerate(vac_list)}
         with open('vacansies.json', 'w', encoding='utf-8') as file:
-            json.dump(list(dict_vac), file, ensure_ascii=False, indent=4)
+            json.dump(dict_vac, file, ensure_ascii=False, indent=4)
 
 def parce():
     """
@@ -96,7 +108,7 @@ def parce():
 
 class MallingResumeForVaccancies(ParseVacansiesLink):
     """
-
+    Класс отвечает за рассылку резюме
     """
 
     def __init__(self):
@@ -145,30 +157,43 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
         with webdriver.Chrome(options=self.options) as driver:
             driver.set_window_size(1850, 1000)
 
-            for urls in self.links:
-                # проходимся по найденым вакансиям
-                for url in urls.values():
-                    driver.get(url)
+            log.warning(f'START MAILING COUNT VACANCIES: {str(len(self.links))}')
 
-                    # находим и кликамем оставить отклик
-                    button = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.PARTIAL_LINK_TEXT, 'Откликнуться')))
-                    button.click()
+                # проходимся по найденым вакансиям
+            for url in self.links.values():
+                driver.get(url)
+                log.info(f'CURRENT URL: {url}')
+                # находим и кликамем оставить отклик
+                button = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.PARTIAL_LINK_TEXT, 'Откликнуться')))
+                button.click()
+
+                
+                try:
                     # находим и кликаем добавить сопроводительное
-                    button_text = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="RESPONSE_MODAL_FORM_ID"]/div/div/div[3]/button')))
+                    button_text = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="RESPONSE_MODAL_FORM_ID"]/div/div/div[3]/button')))
                     button_text.click()
                     # вставляем сопроводительное
-                    send_text = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.TAG_NAME, 'textarea')))
+                    send_text = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.TAG_NAME, 'textarea')))
                     send_text.click()
                     self._process_insert_resume_text(driver, send_text)
                     sleep(3)
-                    # отправлем отклик
-                    responce_send = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[14]/div/div[2]/div[5]/button[2]')))
+                except: # если сопроводительное уже есть(может быт подставленно автоматом сайтом) просто идем дальше
+                    ...
+                # отправлем отклик
+                try: # если я уже отзывалс по этой вакасии
+                    try:
+                        responce_send = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[14]/div/div[2]/div[5]/button[2]'))) 
+                        
+                    except:
+                        responce_send = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[15]/div/div[2]/div[5]/button[2]'))) #  если не подойдет первый
+                        
                     responce_send.click()
                     # что бы не наглеть подождем
                     sleep(20)
-                    print(url)
-                    
+                except:
+                    continue    
             driver.close()
+        log.warning('END MAILING')
 
     def _process_insert_resume_text(self, driver, element):
         for line in self.resume_text:
@@ -184,6 +209,9 @@ def mailling():
     """
     maillong = MallingResumeForVaccancies()
     maillong()
+    
 
 if __name__ == "__main__":
+    parce()
+    sleep(10)
     mailling()

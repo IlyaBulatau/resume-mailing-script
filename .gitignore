@@ -8,3 +8,5 @@ pyppet.py
 
 /__pycache__/
 userData
+
+log.log
