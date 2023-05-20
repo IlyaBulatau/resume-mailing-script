@@ -6,4 +6,4 @@ class ConfigDataLoader:
     env.read_env()
 
     UA = env('UA')
-    
+    EMAIL = env('EMAIL')

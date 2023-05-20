@@ -138,7 +138,7 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
             button.click()
             # вставить в поле входа емеил
             input_p = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.NAME, 'login')))
-            driver.execute_script("arguments[0].value='ilyabulatau@gmail.com';", input_p)
+            driver.execute_script(f"arguments[0].value='{ConfigDataLoader.EMAIL};", input_p)
             # кликнуть на кнопку ввода емейла
             button2 = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.TAG_NAME, 'button')))
             button2.click()
@@ -175,7 +175,7 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
                     # вставляем сопроводительное
                     send_text = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.TAG_NAME, 'textarea')))
                     send_text.click()
-                    self._process_insert_resume_text(driver, send_text)
+                    self._process_insert_resume_text(driver)
                     sleep(3)
                 except: # если сопроводительное уже есть(может быт подставленно автоматом сайтом) просто идем дальше
                     ...
@@ -195,7 +195,7 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
             driver.close()
         log.warning('END MAILING')
 
-    def _process_insert_resume_text(self, driver, element):
+    def _process_insert_resume_text(self, driver):
         for line in self.resume_text:
             line = line.replace('\n', '')
             ActionChains(driver).send_keys(line).perform()
