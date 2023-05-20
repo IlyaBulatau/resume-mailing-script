@@ -1,8 +1,10 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 
 import json
 from time import sleep
@@ -102,7 +104,7 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
         self.user_agent = ConfigDataLoader.UA
 
         with open('resume.txt', encoding='utf-8') as file:
-            self.resume_text = file.read()
+            self.resume_text = file.readlines()
         with open('vacansies.json', encoding='utf-8') as file:
             self.links: list[dict] = json.load(file)
 
@@ -156,7 +158,9 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
                     button_text.click()
                     # вставляем сопроводительное
                     send_text = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.TAG_NAME, 'textarea')))
-                    driver.execute_script(f"arguments[0].value='{self.resume_text}';", send_text)
+                    send_text.click()
+                    self._process_insert_resume_text(driver, send_text)
+                    sleep(3)
                     # отправлем отклик
                     responce_send = WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[14]/div/div[2]/div[5]/button[2]')))
                     responce_send.click()
@@ -165,6 +169,13 @@ class MallingResumeForVaccancies(ParseVacansiesLink):
                     print(url)
                     
             driver.close()
+
+    def _process_insert_resume_text(self, driver, element):
+        for line in self.resume_text:
+            ActionChains(driver).send_keys(line).perform()
+            ActionChains(driver).key_down(Keys.SHIFT).key_down(Keys.ENTER).key_up(Keys.SHIFT).key_up(Keys.ENTER).perform()
+        ActionChains(driver).send_keys(Keys.RETURN).perform()
+
 
 def mailling():
     """
